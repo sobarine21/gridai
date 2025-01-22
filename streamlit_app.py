@@ -2,6 +2,7 @@ import streamlit as st
 import google.generativeai as genai
 import requests
 import random
+from time import sleep
 
 # Configure the API keys securely using Streamlit's secrets
 genai.configure(api_key=st.secrets["GOOGLE_API_KEY"])
@@ -71,83 +72,105 @@ def modify_style(content, style):
 st.title("AI-Powered Ghostwriter with Advanced Features")
 st.write("Generate high-quality content and check for originality using Generative AI and Google Search.")
 
-# User input for prompt
-prompt = st.text_area("Enter your prompt:", placeholder="Write about AI trends in 2025.", value="AI trends in 2025")
+# Tab setup for better UX
+tab1, tab2, tab3 = st.tabs(["Content Generation", "Originality Check", "Advanced Features"])
 
-# Content length slider
-length = st.slider("Content Length", 100, 1500, default_length)  # 500 by default
+with tab1:
+    st.header("Content Generation")
+    prompt = st.text_area("Enter your prompt:", placeholder="Write about AI trends in 2025.", value="AI trends in 2025")
+    
+    # Content length slider
+    length = st.slider("Content Length", 100, 1500, default_length)  # 500 by default
 
-# Select creativity level
-creativity = st.selectbox("Creativity Level", creativity_levels, format_func=lambda x: f"{x}%")
+    # Select creativity level
+    creativity = st.selectbox("Creativity Level", creativity_levels, format_func=lambda x: f"{x}%")
 
-# Select content style (Formal, Casual, Creative)
-style = st.selectbox("Select Content Style", ["Formal", "Casual", "Creative", "Neutral"])
+    # Select content style (Formal, Casual, Creative)
+    style = st.selectbox("Select Content Style", ["Formal", "Casual", "Creative", "Neutral"])
 
-# Button to generate content
-if st.button("Generate Content"):
-    if not prompt.strip():
-        st.error("Please enter a valid prompt.")
-    else:
-        try:
-            # Modify the prompt based on the style selected
-            adjusted_prompt = modify_style(prompt, style)
+    # Button to generate content
+    if st.button("Generate Content"):
+        if not prompt.strip():
+            st.error("Please enter a valid prompt.")
+        else:
+            with st.spinner("Generating content..."):
+                try:
+                    # Modify the prompt based on the style selected
+                    adjusted_prompt = modify_style(prompt, style)
 
-            # Generate content using Generative AI
-            model = genai.GenerativeModel('gemini-1.5-flash')
-            response = model.generate_content(adjusted_prompt)
+                    # Generate content using Generative AI
+                    model = genai.GenerativeModel('gemini-1.5-flash')
+                    response = model.generate_content(adjusted_prompt)
 
-            generated_text = response.text.strip()
+                    generated_text = response.text.strip()
 
-            # Display generated content
-            st.subheader("Generated Content:")
-            st.write(generated_text)
+                    # Display generated content
+                    st.subheader("Generated Content:")
+                    st.write(generated_text)
 
-            # Provide options to download or save content
-            st.download_button("Download as .txt", generated_text, file_name="generated_content.txt")
-            st.download_button("Download as .docx", generated_text, file_name="generated_content.docx")
+                    # Provide options to download or save content
+                    st.download_button("Download as .txt", generated_text, file_name="generated_content.txt")
+                    st.download_button("Download as .docx", generated_text, file_name="generated_content.docx")
 
-            # Show word count
-            st.write(f"Word Count: {len(generated_text.split())}")
+                    # Show word count
+                    st.write(f"Word Count: {len(generated_text.split())}")
 
-            # Call the originality check function after content is generated
-            st.subheader("Originality Check")
-            originality_score = check_originality(generated_text)
+                except Exception as e:
+                    st.error(f"Error generating content: {e}")
 
-            # Display originality score
-            st.write(f"Originality Score: {originality_score}%")
+with tab2:
+    st.header("Originality Check")
+    
+    # Button to trigger originality check
+    if st.button("Check Originality"):
+        with st.spinner("Checking originality..."):
+            try:
+                # Check originality score using the previous generated text
+                generated_text = st.session_state.get("generated_text", "")
+                if not generated_text:
+                    st.error("Please generate content first to check originality.")
+                else:
+                    originality_score = check_originality(generated_text)
 
-            if originality_score < default_originality_level:
-                st.warning(f"Your content is only {originality_score}% original. You may want to refine it.")
-                if st.button("Make Content 100% Original"):
-                    regenerate_content(prompt, creativity)  # Regenerate content to make it more original
-            else:
-                st.success("Your content is highly original!")
+                    # Display originality score
+                    st.write(f"Originality Score: {originality_score}%")
+                    if originality_score < default_originality_level:
+                        st.warning(f"Your content is only {originality_score}% original. You may want to refine it.")
+                        if st.button("Make Content 100% Original"):
+                            regenerate_content(generated_text, creativity)  # Regenerate content to make it more original
+                    else:
+                        st.success("Your content is highly original!")
+            except Exception as e:
+                st.error(f"Error checking originality: {e}")
 
-        except Exception as e:
-            st.error(f"Error generating content: {e}")
+with tab3:
+    st.header("Advanced Features")
+    st.sidebar.title("Advanced Features")
+    st.sidebar.write("""
+    - **Search Engine Advanced Configuration**: You can configure your custom search engine to get more accurate originality scores.
+    - **Text Complexity Tuning**: You can set the complexity of your generated content, e.g., simple, intermediate, or advanced.
+    - **Content Comparison**: Compare multiple generated versions side by side.
+    """)
 
-# Advanced Features
-st.sidebar.title("Advanced Features")
-st.sidebar.write("""
-- **Search Engine Advanced Configuration**: You can configure your custom search engine to get more accurate originality scores.
-- **Text Complexity Tuning**: You can set the complexity of your generated content, e.g., simple, intermediate, or advanced.
-- **Content Comparison**: Compare multiple generated versions side by side.
-""")
-# Adding a Content Comparison Feature
-if st.sidebar.checkbox("Enable Content Comparison"):
-    prompt_comparison = st.text_area("Enter comparison prompt:", value="AI trends in 2025")
-    if st.button("Generate Comparison Content"):
-        model = genai.GenerativeModel('gemini-1.5-flash')
-        response1 = model.generate_content(prompt_comparison)
-        response2 = model.generate_content(prompt_comparison + " in a different style")
-        st.subheader("Comparison 1")
-        st.write(response1.text.strip())
-        st.subheader("Comparison 2")
-        st.write(response2.text.strip())
+    # Adding a Content Comparison Feature
+    if st.checkbox("Enable Content Comparison"):
+        prompt_comparison = st.text_area("Enter comparison prompt:", value="AI trends in 2025")
+        if st.button("Generate Comparison Content"):
+            with st.spinner("Generating comparison content..."):
+                try:
+                    model = genai.GenerativeModel('gemini-1.5-flash')
+                    response1 = model.generate_content(prompt_comparison)
+                    response2 = model.generate_content(prompt_comparison + " in a different style")
+                    st.subheader("Comparison 1")
+                    st.write(response1.text.strip())
+                    st.subheader("Comparison 2")
+                    st.write(response2.text.strip())
+                except Exception as e:
+                    st.error(f"Error generating comparison content: {e}")
 
-# Adding random content generation for inspiration
-if st.sidebar.button("Generate Random Idea"):
-    random_prompts = ["AI in healthcare", "The future of quantum computing", "Sustainable tech in 2025", "Ethical implications of AI"]
-    random_prompt = random.choice(random_prompts)
-    st.subheader(f"Random Prompt: {random_prompt}")
-    st.text_area("Generated Content", value=random_prompt)
+    # Adding random content generation for inspiration
+    if st.button("Generate Random Idea"):
+        random_prompts = ["AI in healthcare", "The future of quantum computing", "Sustainable tech in 2025", "Ethical implications of AI"]
+        random_prompt = random.choice(random_prompts)
+        st.subheader(f"Random Prompt: {random_prompt}")
+        st.text_area("Generated Content", value=random_prompt)
