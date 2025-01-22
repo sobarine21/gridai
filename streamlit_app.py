@@ -32,11 +32,14 @@ def search_web(query):
         return []
 
 # Function to regenerate and rewrite content to make it original
-def regenerate_content(prompt):
-    """Generates rewritten content based on the original prompt to ensure originality."""
+def regenerate_content(original_content):
+    """Generates rewritten content based on the original content to ensure originality."""
     model = genai.GenerativeModel('gemini-1.5-flash')
-    # Ask the AI model to rephrase or rewrite the original content.
-    response = model.generate_content(f"Rewrite the following content to make it completely original and different:\n\n{prompt}")
+    
+    # Explicitly request the model to rewrite and paraphrase the content.
+    prompt = f"Rewrite the following content to make it original and distinct. Ensure it is paraphrased and does not match existing content:\n\n{original_content}"
+    
+    response = model.generate_content(prompt)
     return response.text.strip()
 
 # Generate Content Button
@@ -72,7 +75,7 @@ if st.button("Generate Response"):
                 # Option to regenerate content if similarity is found
                 st.warning("To ensure 100% originality, you can regenerate the content.")
                 if st.button("Regenerate Content"):
-                    # Generate new content that is rewritten and original
+                    # Regenerate content by rewriting it for originality
                     regenerated_text = regenerate_content(generated_text)
                     st.success("Content has been regenerated for originality.")
                     st.subheader("Regenerated Content:")
