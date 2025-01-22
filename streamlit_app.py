@@ -42,6 +42,13 @@ def regenerate_content(original_content):
     response = model.generate_content(prompt)
     return response.text.strip()
 
+# Button handling for content generation and regeneration
+if 'generated_text' not in st.session_state:
+    st.session_state.generated_text = ""
+
+if 'regenerate_clicked' not in st.session_state:
+    st.session_state.regenerate_clicked = False
+
 # Generate Content Button
 if st.button("Generate Response"):
     if not prompt.strip():
@@ -51,9 +58,12 @@ if st.button("Generate Response"):
             # Generate content using Generative AI
             model = genai.GenerativeModel('gemini-1.5-flash')
             response = model.generate_content(prompt)
-            
             generated_text = response.text.strip()
-            
+
+            # Store generated content in session state
+            st.session_state.generated_text = generated_text
+            st.session_state.regenerate_clicked = False  # Reset regenerate state
+
             # Display the generated content
             st.subheader("Generated Content:")
             st.write(generated_text)
@@ -61,28 +71,35 @@ if st.button("Generate Response"):
             # Check if the content exists on the web
             st.subheader("Searching for Similar Content Online:")
             search_results = search_web(generated_text)
-            
+
             if search_results:
                 st.warning("Similar content found on the web:")
-                
+
                 # Create a dashboard-like display for the search results
                 for result in search_results[:5]:  # Show top 5 results
                     with st.expander(result['title']):
                         st.write(f"**Source:** [{result['link']}]({result['link']})")
                         st.write(f"**Snippet:** {result['snippet']}")
                         st.write("---")
-                
+
                 # Option to regenerate content if similarity is found
                 st.warning("To ensure 100% originality, you can regenerate the content.")
                 if st.button("Regenerate Content"):
                     # Regenerate content by rewriting it for originality
                     regenerated_text = regenerate_content(generated_text)
+                    st.session_state.generated_text = regenerated_text
+                    st.session_state.regenerate_clicked = True  # Mark regenerate action
                     st.success("Content has been regenerated for originality.")
                     st.subheader("Regenerated Content:")
                     st.write(regenerated_text)
 
             else:
                 st.success("No similar content found online. Your content seems original!")
-                
+
         except Exception as e:
             st.error(f"Error generating content: {e}")
+
+# Display the regenerated content if applicable
+if st.session_state.regenerate_clicked:
+    st.subheader("Regenerated Content (After Adjustments for Originality):")
+    st.write(st.session_state.generated_text)
