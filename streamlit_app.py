@@ -1,13 +1,6 @@
 import streamlit as st
 import google.generativeai as genai
 import requests
-import random
-import re
-from nltk.corpus import wordnet
-
-# Ensure you have NLTK installed for synonyms: pip install nltk
-import nltk
-nltk.download('wordnet')
 
 # Configure the API keys securely using Streamlit's secrets
 # Ensure to add the following keys in secrets.toml or Streamlit Cloud Secrets:
@@ -39,33 +32,15 @@ def search_web(query):
         return []
 
 # Function to regenerate and rewrite content to make it original
-def regenerate_content_with_gemini(original_content):
-    """Attempt to regenerate content using Gemini AI."""
+def regenerate_content(original_content):
+    """Generates rewritten content based on the original content to ensure originality."""
     model = genai.GenerativeModel('gemini-1.5-flash')
+    
+    # Explicitly request the model to rewrite and paraphrase the content.
     prompt = f"Rewrite the following content to make it original and distinct. Ensure it is paraphrased and does not match existing content:\n\n{original_content}"
     
     response = model.generate_content(prompt)
     return response.text.strip()
-
-# Fallback content rephrasing using synonyms and sentence restructuring
-def simple_rephrase(content):
-    """Rephrases the content using synonyms and basic sentence restructuring."""
-    
-    # Find synonyms for words in the content
-    def replace_with_synonym(word):
-        synonyms = wordnet.synsets(word)
-        if synonyms:
-            # Take the first synonym available (use simple strategy)
-            synonym = synonyms[0].lemmas()[0].name()
-            if synonym != word:
-                return synonym
-        return word
-
-    words = content.split()
-    rephrased_words = [replace_with_synonym(word) for word in words]
-    rephrased_content = " ".join(rephrased_words)
-    
-    return rephrased_content
 
 # Button handling for content generation and regeneration
 if 'generated_text' not in st.session_state:
@@ -110,14 +85,8 @@ if st.button("Generate Response"):
                 # Option to regenerate content if similarity is found
                 st.warning("To ensure 100% originality, you can regenerate the content.")
                 if st.button("Regenerate Content"):
-                    # First try regeneration with Gemini AI
-                    regenerated_text = regenerate_content_with_gemini(generated_text)
-                    
-                    # If Gemini didn't make enough changes, use fallback rephrasing
-                    if regenerated_text == generated_text:
-                        st.warning("Gemini didn't modify the content sufficiently. Using fallback rephrasing.")
-                        regenerated_text = simple_rephrase(generated_text)
-                    
+                    # Regenerate content by rewriting it for originality
+                    regenerated_text = regenerate_content(generated_text)
                     st.session_state.generated_text = regenerated_text
                     st.session_state.regenerate_clicked = True  # Mark regenerate action
                     st.success("Content has been regenerated for originality.")
