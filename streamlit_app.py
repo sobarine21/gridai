@@ -6,7 +6,7 @@ from time import sleep
 import matplotlib.pyplot as plt
 import seaborn as sns
 from io import BytesIO
-from textstat.textstat import textstatistics, easy_score
+from textstat.textstat import textstatistics  # Updated import (removing easy_score)
 
 
 # Configure the API keys securely using Streamlit's secrets
@@ -73,11 +73,12 @@ def modify_style(content, style):
     else:
         return content
 
-# Function to check readability and SEO score
+# Function to check readability score using Flesch Reading Ease
 def check_readability(text):
-    readability_score = easy_score(text)
+    readability_score = textstat.flesch_reading_ease(text)  # Using Flesch Reading Ease score
     return readability_score
 
+# Function to plot the dashboard
 def plot_dashboard(originality_score, readability_score, word_count):
     # Plotting a simple dashboard-style graph
     fig, ax = plt.subplots(figsize=(6, 4))
