@@ -10,7 +10,6 @@ st.sidebar.title("AI Ghostwriter")
 sidebar_selection = st.sidebar.radio("Go to", ["Home", "Generate Content", "Originality Dashboard", "Settings"])
 
 # Default settings for generation and originality
-default_tone = "Neutral"
 default_length = 500  # Length in words
 default_originality_level = 100  # Default is 100% originality
 
@@ -24,7 +23,6 @@ if sidebar_selection == "Home":
 elif sidebar_selection == "Generate Content":
     st.subheader("Generate Your Content")
     prompt = st.text_area("Enter your prompt:", placeholder="Write about AI trends in 2025.", value="AI trends in 2025")
-    tone = st.selectbox("Select Tone", ["Neutral", "Casual", "Formal", "Excited"], index=0)  # Neutral by default
     length = st.slider("Content Length", 100, 1500, default_length)  # 500 by default
     
     if st.button("Generate Content"):
@@ -32,12 +30,9 @@ elif sidebar_selection == "Generate Content":
             st.error("Please enter a valid prompt.")
         else:
             try:
-                # Adjust the prompt to influence the tone
-                adjusted_prompt = adjust_prompt_tone(prompt, tone)
-
                 # Generate content using Generative AI
                 model = genai.GenerativeModel('gemini-1.5-flash')
-                response = model.generate_content(adjusted_prompt)
+                response = model.generate_content(prompt)
                 
                 generated_text = response.text.strip()
                 
@@ -136,13 +131,3 @@ def regenerate_content(prompt, originality_level):
         
     except Exception as e:
         st.error(f"Error regenerating content: {e}")
-
-# Function to adjust the tone of the prompt
-def adjust_prompt_tone(prompt, tone):
-    tone_map = {
-        "Neutral": "",
-        "Casual": "Make this more casual and friendly:",
-        "Formal": "Make this more formal and professional:",
-        "Excited": "Make this more enthusiastic and excited:"
-    }
-    return f"{tone_map.get(tone, '')} {prompt}"
