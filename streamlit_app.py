@@ -32,9 +32,12 @@ elif sidebar_selection == "Generate Content":
             st.error("Please enter a valid prompt.")
         else:
             try:
+                # Adjust the prompt to influence the tone
+                adjusted_prompt = adjust_prompt_tone(prompt, tone)
+
                 # Generate content using Generative AI
                 model = genai.GenerativeModel('gemini-1.5-flash')
-                response = model.generate_content(prompt, tone=tone, length=length)
+                response = model.generate_content(adjusted_prompt)
                 
                 generated_text = response.text.strip()
                 
@@ -122,7 +125,7 @@ def regenerate_content(prompt, originality_level):
         model = genai.GenerativeModel('gemini-1.5-flash')
         # Adjust prompt or parameters to encourage more originality
         adjusted_prompt = f"Create a highly original version of this: {prompt}"
-        response = model.generate_content(adjusted_prompt, length=1000)
+        response = model.generate_content(adjusted_prompt)
         
         generated_text = response.text.strip()
         st.subheader("Regenerated Content:")
@@ -133,3 +136,13 @@ def regenerate_content(prompt, originality_level):
         
     except Exception as e:
         st.error(f"Error regenerating content: {e}")
+
+# Function to adjust the tone of the prompt
+def adjust_prompt_tone(prompt, tone):
+    tone_map = {
+        "Neutral": "",
+        "Casual": "Make this more casual and friendly:",
+        "Formal": "Make this more formal and professional:",
+        "Excited": "Make this more enthusiastic and excited:"
+    }
+    return f"{tone_map.get(tone, '')} {prompt}"
