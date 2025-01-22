@@ -1,183 +1,105 @@
 import streamlit as st
-import pandas as pd
 import google.generativeai as genai
-from googleapiclient.discovery import build
 import requests
-from bs4 import BeautifulSoup
-from io import StringIO
-from fpdf import FPDF
 
-# Configure the API key securely from Streamlit's secrets
+# Configure the API keys securely using Streamlit's secrets
+# Ensure to add the following keys in secrets.toml or Streamlit Cloud Secrets:
+# - GOOGLE_API_KEY: API key for Google Generative AI
+# - GOOGLE_SEARCH_ENGINE_ID: Google Custom Search Engine ID
 genai.configure(api_key=st.secrets["GOOGLE_API_KEY"])
 
-# Set up Google API keys
-GOOGLE_API_KEY = st.secrets["GOOGLE_API_KEY"]
-GOOGLE_CX = st.secrets["GOOGLE_SEARCH_ENGINE_ID"]
+# App Title and Description
+st.title("AI-Powered Ghostwriter")
+st.write("Generate high-quality content and check for originality using the power of Generative AI and Google Search.")
 
-# Initialize Karma Points
-if "karma_points" not in st.session_state:
-    st.session_state["karma_points"] = 0
+# Prompt Input Field
+prompt = st.text_area("Enter your prompt:", placeholder="Write a blog about AI trends in 2025.")
 
-# Function to update karma points
-def update_karma_points():
-    st.session_state["karma_points"] += 1
+# Search Web Functionality
+def search_web(query):
+    """Searches the web using Google Custom Search API and returns results."""
+    search_url = "https://www.googleapis.com/customsearch/v1"
+    params = {
+        "key": st.secrets["GOOGLE_API_KEY"],
+        "cx": st.secrets["GOOGLE_SEARCH_ENGINE_ID"],
+        "q": query,
+    }
+    response = requests.get(search_url, params=params)
+    if response.status_code == 200:
+        return response.json().get("items", [])
+    else:
+        st.error(f"Search API Error: {response.status_code} - {response.text}")
+        return []
 
-# Function to interact with Google Search API with filtering
-def google_search(query):
-    service = build("customsearch", "v1", developerKey=GOOGLE_API_KEY)
-    response = service.cse().list(q=query, cx=GOOGLE_CX).execute()
-    results = response.get("items", [])
+# Function to regenerate and rewrite content to make it original
+def regenerate_content(original_content):
+    """Generates rewritten content based on the original content to ensure originality."""
+    model = genai.GenerativeModel('gemini-1.5-flash')
     
-    # Filter results to remove irrelevant links (e.g., ads, short snippets)
-    search_results = []
-    for result in results:
-        url = result.get("link", "")
-        if any(domain in url for domain in ["youtube.com", "ads.google.com"]):  # Add more irrelevant domains if needed
-            continue
-        snippet = result.get("snippet", "")
-        if len(snippet) < 50:  # Skip overly short snippets
-            continue
-        search_results.append({
-            "Title": result.get("title"),
-            "URL": url,
-            "Snippet": snippet,
-        })
-    return search_results
+    # Explicitly request the model to rewrite and paraphrase the content.
+    prompt = f"Rewrite the following content to make it original and distinct. Ensure it is paraphrased and does not match existing content:\n\n{original_content}"
+    
+    response = model.generate_content(prompt)
+    return response.text.strip()
 
-# Function to generate a PDF from summaries
-def generate_pdf(summaries_df):
-    pdf = FPDF()
-    pdf.set_auto_page_break(auto=True, margin=15)
-    pdf.add_page()
-    pdf.set_font("Arial", size=12)
+# Button handling for content generation and regeneration
+if 'generated_text' not in st.session_state:
+    st.session_state.generated_text = ""
 
-    # Title
-    pdf.set_font("Arial", style="B", size=14)
-    pdf.cell(200, 10, txt="AI Summarized Web Results", ln=True, align='C')
-    pdf.set_font("Arial", size=12)
+if 'regenerate_clicked' not in st.session_state:
+    st.session_state.regenerate_clicked = False
 
-    # Add each summary as a new section in the PDF
-    for index, row in summaries_df.iterrows():
-        pdf.ln(10)  # Line break
-        pdf.set_font("Arial", style="B", size=12)
-        pdf.cell(200, 10, txt=f"URL: {row['URL']}", ln=True)
-        pdf.set_font("Arial", size=11)
-        pdf.multi_cell(0, 10, txt=f"Summary: {row['Summary']}")
-    return pdf.output(dest='S').encode('latin1')
+# Generate Content Button
+if st.button("Generate Response"):
+    if not prompt.strip():
+        st.error("Please enter a valid prompt.")
+    else:
+        try:
+            # Generate content using Generative AI
+            model = genai.GenerativeModel('gemini-1.5-flash')
+            response = model.generate_content(prompt)
+            generated_text = response.text.strip()
 
-# Function to summarize web content using AI
-def summarize_web_content(url):
-    try:
-        content_response = requests.get(url, timeout=10)
-        if content_response.status_code != 200:
-            return "Failed to fetch content."
+            # Store generated content in session state
+            st.session_state.generated_text = generated_text
+            st.session_state.regenerate_clicked = False  # Reset regenerate state
 
-        # Parse HTML and extract meaningful text
-        soup = BeautifulSoup(content_response.text, "html.parser")
-        paragraphs = soup.find_all(["p", "article"])
-        web_text = " ".join([p.get_text(strip=True) for p in paragraphs if len(p.get_text(strip=True)) > 30])
-        if not web_text:
-            return "No meaningful content extracted."
+            # Display the generated content
+            st.subheader("Generated Content:")
+            st.write(generated_text)
 
-        # Use Gemini AI to summarize
-        model = genai.GenerativeModel('gemini-2-flash')
-        ai_summary = model.generate_content(web_text)
-        return ai_summary.text
-    except Exception as e:
-        return f"Error summarizing content: {e}"
+            # Check if the content exists on the web
+            st.subheader("Searching for Similar Content Online:")
+            search_results = search_web(generated_text)
 
-# Streamlit UI
-st.title("KARMA - The AI Powered Browser")
-st.sidebar.header("Features")
-action = st.sidebar.radio("Choose an Action", ["Search Web", "Use AI", "Both"])
-export_csv = st.sidebar.checkbox("Export Results as CSV")
-export_txt = st.sidebar.checkbox("Export Results as TXT")
-export_pdf = st.sidebar.checkbox("Export Results as PDF")
+            if search_results:
+                st.warning("Similar content found on the web:")
 
-# Display karma points
-st.sidebar.markdown(f"### Karma Points: {st.session_state['karma_points']}")
+                # Create a dashboard-like display for the search results
+                for result in search_results[:5]:  # Show top 5 results
+                    with st.expander(result['title']):
+                        st.write(f"**Source:** [{result['link']}]({result['link']})")
+                        st.write(f"**Snippet:** {result['snippet']}")
+                        st.write("---")
 
-if action == "Search Web":
-    st.header("Search the Web & Earn Karma Points")
-    query = st.text_input("Enter your search query:")
-    if st.button("Search"):
-        update_karma_points()
-        results = google_search(query)
-        if results:
-            st.success(f"Found {len(results)} filtered results.")
-            results_df = pd.DataFrame(results)
-            st.dataframe(results_df)
-            if export_csv:
-                csv = results_df.to_csv(index=False)
-                st.download_button(label="Download Results as CSV", data=csv, file_name="search_results.csv", mime="text/csv")
-            if export_txt:
-                txt = StringIO()
-                results_df.to_string(txt, index=False)
-                st.download_button(label="Download Results as TXT", data=txt.getvalue(), file_name="search_results.txt", mime="text/plain")
-            if export_pdf:
-                pdf = generate_pdf(results_df)
-                st.download_button(label="Download Results as PDF", data=pdf, file_name="search_results.pdf", mime="application/pdf")
-        else:
-            st.warning("No relevant results found.")
+                # Option to regenerate content if similarity is found
+                st.warning("To ensure 100% originality, you can regenerate the content.")
+                if st.button("Regenerate Content"):
+                    # Regenerate content by rewriting it for originality
+                    regenerated_text = regenerate_content(generated_text)
+                    st.session_state.generated_text = regenerated_text
+                    st.session_state.regenerate_clicked = True  # Mark regenerate action
+                    st.success("Content has been regenerated for originality.")
+                    st.subheader("Regenerated Content:")
+                    st.write(regenerated_text)
 
-elif action == "Use AI":
-    st.header("Use Gemini AI for Summarization")
-    input_text = st.text_area("Enter the text to summarize:")
-    if st.button("Summarize"):
-        update_karma_points()
-        if input_text:
-            try:
-                # Load and configure the model for summarization
-                model = genai.GenerativeModel('gemini-2.0-flash-exp')
-                response = model.generate_content(input_text)
-                st.subheader("Summary")
-                st.write(response.text)
-            except Exception as e:
-                st.error(f"Error: {e}")
-        else:
-            st.warning("Please provide text to summarize.")
-
-elif action == "Both":
-    st.header("Search the Web & Summarize Top Results")
-    query = st.text_input("Enter your search query:")
-    if st.button("Search and Summarize"):
-        update_karma_points()
-        # Step 1: Search Web
-        results = google_search(query)
-        if results:
-            st.success(f"Found {len(results)} filtered results.")
-            results_df = pd.DataFrame(results)
-            st.dataframe(results_df)
-
-            # Step 2: Summarize Top Results
-            st.subheader("AI Summaries of Top Results")
-            summaries = []
-            for result in results[:5]:  # Limit to top 5 results for summarization
-                url = result["URL"]
-                st.write(f"Analyzing: {url}")
-                summary = summarize_web_content(url)
-                summaries.append({"URL": url, "Summary": summary})
-                st.markdown(f"**URL:** {url}")
-                st.write(summary)
-
-            # Check if summaries were successfully generated before exporting
-            if summaries:
-                summaries_df = pd.DataFrame(summaries)
-                if export_csv:
-                    csv = summaries_df.to_csv(index=False)
-                    st.download_button(label="Download Summaries as CSV", data=csv, file_name="summaries.csv", mime="text/csv")
-                if export_txt:
-                    txt = StringIO()
-                    summaries_df.to_string(txt, index=False)
-                    st.download_button(label="Download Summaries as TXT", data=txt.getvalue(), file_name="summaries.txt", mime="text/plain")
-                if export_pdf:
-                    pdf = generate_pdf(summaries_df)
-                    st.download_button(label="Download Summaries as PDF", data=pdf, file_name="summaries.pdf", mime="application/pdf")
             else:
-                st.warning("No summaries available to export.")
-        else:
-            st.warning("No relevant results found.")
+                st.success("No similar content found online. Your content seems original!")
 
-# Footer
-st.sidebar.markdown("---")
-st.sidebar.markdown("Powered by Google Search API & Gemini AI")
+        except Exception as e:
+            st.error(f"Error generating content: {e}")
+
+# Display the regenerated content if applicable
+if st.session_state.regenerate_clicked:
+    st.subheader("Regenerated Content (After Adjustments for Originality):")
+    st.write(st.session_state.generated_text)
