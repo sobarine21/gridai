@@ -3,6 +3,11 @@ import google.generativeai as genai
 import requests
 import random
 from time import sleep
+import matplotlib.pyplot as plt
+import seaborn as sns
+from io import BytesIO
+from textstat.textstat import textstatistics, easy_score
+
 
 # Configure the API keys securely using Streamlit's secrets
 genai.configure(api_key=st.secrets["GOOGLE_API_KEY"])
@@ -68,6 +73,24 @@ def modify_style(content, style):
     else:
         return content
 
+# Function to check readability and SEO score
+def check_readability(text):
+    readability_score = easy_score(text)
+    return readability_score
+
+def plot_dashboard(originality_score, readability_score, word_count):
+    # Plotting a simple dashboard-style graph
+    fig, ax = plt.subplots(figsize=(6, 4))
+    metrics = ['Originality', 'Readability', 'Word Count']
+    values = [originality_score, readability_score, word_count]
+
+    sns.barplot(x=metrics, y=values, palette="viridis")
+    ax.set_ylabel("Score/Count")
+    ax.set_title("Content Metrics Dashboard")
+
+    # Display the plot
+    st.pyplot(fig)
+
 # Main page setup
 st.title("AI-Powered Ghostwriter with Advanced Features")
 st.write("Generate high-quality content and check for originality using Generative AI and Google Search.")
@@ -113,7 +136,11 @@ with tab1:
                     st.download_button("Download as .docx", generated_text, file_name="generated_content.docx")
 
                     # Show word count
-                    st.write(f"Word Count: {len(generated_text.split())}")
+                    word_count = len(generated_text.split())
+                    st.write(f"Word Count: {word_count}")
+
+                    # Save content to session for future use
+                    st.session_state.generated_text = generated_text
 
                 except Exception as e:
                     st.error(f"Error generating content: {e}")
@@ -125,7 +152,7 @@ with tab2:
     if st.button("Check Originality"):
         with st.spinner("Checking originality..."):
             try:
-                # Check originality score using the previous generated text
+                # Check originality score using the previously generated text
                 generated_text = st.session_state.get("generated_text", "")
                 if not generated_text:
                     st.error("Please generate content first to check originality.")
@@ -140,6 +167,12 @@ with tab2:
                             regenerate_content(generated_text, creativity)  # Regenerate content to make it more original
                     else:
                         st.success("Your content is highly original!")
+
+                    # Display the content metrics dashboard
+                    readability_score = check_readability(generated_text)
+                    word_count = len(generated_text.split())
+                    plot_dashboard(originality_score, readability_score, word_count)
+
             except Exception as e:
                 st.error(f"Error checking originality: {e}")
 
