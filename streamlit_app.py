@@ -9,6 +9,11 @@ genai.configure(api_key=st.secrets["GOOGLE_API_KEY"])
 st.sidebar.title("AI Ghostwriter")
 sidebar_selection = st.sidebar.radio("Go to", ["Home", "Generate Content", "Originality Dashboard", "Settings"])
 
+# Default settings for generation and originality
+default_tone = "Neutral"
+default_length = 500  # Length in words
+default_originality_level = 100  # Default is 100% originality
+
 # Home Page
 if sidebar_selection == "Home":
     st.title("AI-Powered Ghostwriter")
@@ -18,9 +23,9 @@ if sidebar_selection == "Home":
 # Generate Content Page
 elif sidebar_selection == "Generate Content":
     st.subheader("Generate Your Content")
-    prompt = st.text_area("Enter your prompt:", placeholder="Write about AI trends in 2025.")
-    tone = st.selectbox("Select Tone", ["Neutral", "Casual", "Formal", "Excited"])
-    length = st.slider("Content Length", 100, 1500, 500)
+    prompt = st.text_area("Enter your prompt:", placeholder="Write about AI trends in 2025.", value="AI trends in 2025")
+    tone = st.selectbox("Select Tone", ["Neutral", "Casual", "Formal", "Excited"], index=0)  # Neutral by default
+    length = st.slider("Content Length", 100, 1500, default_length)  # 500 by default
     
     if st.button("Generate Content"):
         if not prompt.strip():
@@ -48,8 +53,8 @@ elif sidebar_selection == "Generate Content":
 elif sidebar_selection == "Originality Dashboard":
     st.title("Originality Dashboard")
     
-    prompt = st.text_area("Enter your content or prompt to check originality:", placeholder="Write your content here...")
-    originality_level = st.slider("Adjust Originality Level", 0, 100, 100)  # From 0 to 100%
+    prompt = st.text_area("Enter your content or prompt to check originality:", placeholder="Write your content here...", value="AI trends in 2025")
+    originality_level = st.slider("Adjust Originality Level", 0, 100, default_originality_level)  # 100% by default
     
     if st.button("Check Originality"):
         if not prompt.strip():
@@ -79,7 +84,7 @@ elif sidebar_selection == "Originality Dashboard":
 elif sidebar_selection == "Settings":
     st.title("App Settings")
     st.write("Customize your experience.")
-    dark_mode = st.checkbox("Enable Dark Mode")
+    dark_mode = st.checkbox("Enable Dark Mode", value=True)
     if dark_mode:
         st.write("Dark mode activated!")
     else:
