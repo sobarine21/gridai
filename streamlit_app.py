@@ -1,6 +1,7 @@
 import streamlit as st
 import google.generativeai as genai
 import requests
+import random
 
 # Configure the API keys securely using Streamlit's secrets
 genai.configure(api_key=st.secrets["GOOGLE_API_KEY"])
@@ -8,6 +9,7 @@ genai.configure(api_key=st.secrets["GOOGLE_API_KEY"])
 # Default settings for generation and originality
 default_length = 500  # Length in words
 default_originality_level = 100  # Default is 100% originality
+creativity_levels = [10, 50, 100]  # 10 - less creative, 100 - more creative
 
 # Function to check originality using Google Custom Search API
 def check_originality(content):
@@ -37,11 +39,10 @@ def calculate_originality_score(search_results):
     return max(score, 0)
 
 # Function to regenerate content with more original parameters
-def regenerate_content(prompt):
+def regenerate_content(prompt, creativity_level):
     try:
         model = genai.GenerativeModel('gemini-1.5-flash')
-        # Adjust prompt or parameters to encourage more originality
-        adjusted_prompt = f"Create a highly original version of this: {prompt}"
+        adjusted_prompt = f"Create a {creativity_level}% original version of this: {prompt}"
         response = model.generate_content(adjusted_prompt)
         
         generated_text = response.text.strip()
@@ -54,9 +55,20 @@ def regenerate_content(prompt):
     except Exception as e:
         st.error(f"Error regenerating content: {e}")
 
+# Function to allow style modification of content
+def modify_style(content, style):
+    # Modify content based on the style (e.g., formal, casual)
+    if style == "Formal":
+        return f"Please write the following in a formal tone: {content}"
+    elif style == "Casual":
+        return f"Please write the following in a casual tone: {content}"
+    elif style == "Creative":
+        return f"Make the following text very creative and unique: {content}"
+    else:
+        return content
 
 # Main page setup
-st.title("AI-Powered Ghostwriter")
+st.title("AI-Powered Ghostwriter with Advanced Features")
 st.write("Generate high-quality content and check for originality using Generative AI and Google Search.")
 
 # User input for prompt
@@ -65,39 +77,77 @@ prompt = st.text_area("Enter your prompt:", placeholder="Write about AI trends i
 # Content length slider
 length = st.slider("Content Length", 100, 1500, default_length)  # 500 by default
 
+# Select creativity level
+creativity = st.selectbox("Creativity Level", creativity_levels, format_func=lambda x: f"{x}%")
+
+# Select content style (Formal, Casual, Creative)
+style = st.selectbox("Select Content Style", ["Formal", "Casual", "Creative", "Neutral"])
+
 # Button to generate content
 if st.button("Generate Content"):
     if not prompt.strip():
         st.error("Please enter a valid prompt.")
     else:
         try:
+            # Modify the prompt based on the style selected
+            adjusted_prompt = modify_style(prompt, style)
+
             # Generate content using Generative AI
             model = genai.GenerativeModel('gemini-1.5-flash')
-            response = model.generate_content(prompt)
-            
+            response = model.generate_content(adjusted_prompt)
+
             generated_text = response.text.strip()
-            
+
             # Display generated content
             st.subheader("Generated Content:")
             st.write(generated_text)
-            
+
             # Provide options to download or save content
             st.download_button("Download as .txt", generated_text, file_name="generated_content.txt")
             st.download_button("Download as .docx", generated_text, file_name="generated_content.docx")
-            
+
+            # Show word count
+            st.write(f"Word Count: {len(generated_text.split())}")
+
             # Call the originality check function after content is generated
             st.subheader("Originality Check")
             originality_score = check_originality(generated_text)
-            
+
             # Display originality score
             st.write(f"Originality Score: {originality_score}%")
-            
+
             if originality_score < default_originality_level:
                 st.warning(f"Your content is only {originality_score}% original. You may want to refine it.")
                 if st.button("Make Content 100% Original"):
-                    regenerate_content(prompt)  # Regenerate content to make it more original
+                    regenerate_content(prompt, creativity)  # Regenerate content to make it more original
             else:
                 st.success("Your content is highly original!")
-        
+
         except Exception as e:
             st.error(f"Error generating content: {e}")
+
+# Advanced Features
+st.sidebar.title("Advanced Features")
+st.sidebar.write("""
+- **Search Engine Advanced Configuration**: You can configure your custom search engine to get more accurate originality scores.
+- **Text Complexity Tuning**: You can set the complexity of your generated content, e.g., simple, intermediate, or advanced.
+- **Content Comparison**: Compare multiple generated versions side by side.
+""")
+# Adding a Content Comparison Feature
+if st.sidebar.checkbox("Enable Content Comparison"):
+    prompt_comparison = st.text_area("Enter comparison prompt:", value="AI trends in 2025")
+    if st.button("Generate Comparison Content"):
+        model = genai.GenerativeModel('gemini-1.5-flash')
+        response1 = model.generate_content(prompt_comparison)
+        response2 = model.generate_content(prompt_comparison + " in a different style")
+        st.subheader("Comparison 1")
+        st.write(response1.text.strip())
+        st.subheader("Comparison 2")
+        st.write(response2.text.strip())
+
+# Adding random content generation for inspiration
+if st.sidebar.button("Generate Random Idea"):
+    random_prompts = ["AI in healthcare", "The future of quantum computing", "Sustainable tech in 2025", "Ethical implications of AI"]
+    random_prompt = random.choice(random_prompts)
+    st.subheader(f"Random Prompt: {random_prompt}")
+    st.text_area("Generated Content", value=random_prompt)
