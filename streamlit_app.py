@@ -68,11 +68,35 @@ if prompt.strip():
                 st.subheader("Step 3: Listen to the Generated Content")
                 st.audio(audio_file, format="audio/mp3", start_time=0)
 
+                # Store the generated content in the session state for future actions
+                st.session_state.generated_text = generated_text
+
             except Exception as e:
                 st.error(f"Error generating content: {e}")
 
 else:
     st.info("Enter your idea in the text box above to start.")
+
+# Search for Similar Content (Step 3)
+if st.button("Search Web for Similar Content"):
+    if 'generated_text' in st.session_state:
+        with st.spinner("Searching for similar content... Please wait!"):
+            search_results = search_web(st.session_state.generated_text)
+
+            if search_results:
+                st.warning("We found similar content on the web:")
+
+                # Display results in a compact, user-friendly format
+                for result in search_results[:3]:  # Show only the top 3 results
+                    with st.expander(result['title']):
+                        st.write(f"**Source:** [{result['link']}]({result['link']})")
+                        st.write(f"**Snippet:** {result['snippet'][:150]}...")  # Shortened snippet
+                        st.write("---")
+            else:
+                st.success("No similar content found online.")
+
+    else:
+        st.warning("You need to generate content first before searching for similar content.")
 
 # Option to regenerate content for originality (if desired)
 if st.button("Regenerate Content for Originality"):
