@@ -2,6 +2,8 @@ import streamlit as st
 import google.generativeai as genai
 import requests
 import time
+from gtts import gTTS
+import os
 
 # Configure the API keys securely using Streamlit's secrets
 genai.configure(api_key=st.secrets["GOOGLE_API_KEY"])
@@ -38,6 +40,14 @@ def regenerate_content(original_content):
     response = model.generate_content(prompt)
     return response.text.strip()
 
+# Function to generate podcast using Google gTTS
+def generate_podcast(text):
+    """Generates a podcast (audio file) from the given text using gTTS."""
+    tts = gTTS(text, lang='en')
+    podcast_path = "podcast.mp3"
+    tts.save(podcast_path)
+    return podcast_path
+
 # Content Generation and Search for Similarity (Step 2)
 if prompt.strip():
     if st.button("Generate Content"):
@@ -47,6 +57,10 @@ if prompt.strip():
                 model = genai.GenerativeModel('gemini-1.5-flash')
                 response = model.generate_content(prompt)
                 generated_text = response.text.strip()
+
+                # Limit the generated content to 2500 characters
+                if len(generated_text) > 2500:
+                    generated_text = generated_text[:2500]
 
                 # Display the generated content with feedback
                 st.subheader("Step 2: Your Generated Content")
@@ -78,6 +92,13 @@ if prompt.strip():
 
                 else:
                     st.success("Your content appears to be original. No similar content found online.")
+
+                # Option to generate podcast
+                if st.button("Generate Podcast"):
+                    with st.spinner("Generating podcast... Please wait!"):
+                        podcast_path = generate_podcast(generated_text)
+                        st.audio(podcast_path, format='audio/mp3')
+                        st.success("Podcast generated successfully!")
 
             except Exception as e:
                 st.error(f"Error generating content: {e}")
