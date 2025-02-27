@@ -3,7 +3,7 @@ import google.generativeai as genai
 import requests
 import time
 from gtts import gTTS
-import os
+import io
 
 # Configure the API keys securely using Streamlit's secrets
 genai.configure(api_key=st.secrets["GOOGLE_API_KEY"])
@@ -40,17 +40,14 @@ def regenerate_content(original_content):
     response = model.generate_content(prompt)
     return response.text.strip()
 
-# Function to generate podcast using Google gTTS
-def generate_podcast(text):
-    """Generates a podcast (audio file) from the given text using gTTS."""
-    try:
-        tts = gTTS(text, lang='en')
-        podcast_path = "podcast.mp3"
-        tts.save(podcast_path)
-        return podcast_path
-    except Exception as e:
-        st.error(f"Error generating podcast: {e}")
-        return None
+# Function to convert text to speech
+def text_to_speech(text):
+    """Convert the provided text to speech and return the audio."""
+    tts = gTTS(text=text, lang='en')
+    audio_file = io.BytesIO()
+    tts.save(audio_file)
+    audio_file.seek(0)  # Rewind the file pointer to the beginning
+    return audio_file
 
 # Content Generation and Search for Similarity (Step 2)
 if prompt.strip():
@@ -62,13 +59,14 @@ if prompt.strip():
                 response = model.generate_content(prompt)
                 generated_text = response.text.strip()
 
-                # Limit the generated content to 2500 characters
-                if len(generated_text) > 2500:
-                    generated_text = generated_text[:2500]
-
                 # Display the generated content with feedback
                 st.subheader("Step 2: Your Generated Content")
                 st.write(generated_text)
+
+                # Convert the generated content to speech
+                audio_file = text_to_speech(generated_text)
+                st.subheader("Step 4: Listen to the Generated Content")
+                st.audio(audio_file, format="audio/mp3", start_time=0)
 
                 # Check for similar content online (Step 3)
                 st.subheader("Step 3: Searching for Similar Content Online")
@@ -96,15 +94,6 @@ if prompt.strip():
 
                 else:
                     st.success("Your content appears to be original. No similar content found online.")
-
-                # Option to generate podcast
-                if st.button("Generate Podcast"):
-                    with st.spinner("Generating podcast... Please wait!"):
-                        podcast_path = generate_podcast(generated_text)
-                        if podcast_path:
-                            with open(podcast_path, "rb") as f:
-                                st.audio(f.read(), format='audio/mp3')
-                            st.success("Podcast generated successfully!")
 
             except Exception as e:
                 st.error(f"Error generating content: {e}")
