@@ -1,10 +1,10 @@
 import streamlit as st
 import google.generativeai as genai
 import requests
-import time
-from gtts import gTTS
 import os
+from gtts import gTTS
 from datetime import datetime, timedelta
+from io import BytesIO
 
 # Configure the API keys securely using Streamlit's secrets
 genai.configure(api_key=st.secrets["GOOGLE_API_KEY"])
@@ -50,17 +50,19 @@ def search_web(query):
 # Function to regenerate content for originality
 def regenerate_content(original_content):
     """Generates rewritten content based on the original content to ensure originality."""
-    model = genai.GenerativeModel('gemini-1.5-flash-8b', generation_config=generation_config)
+    model = genai.GenerativeModel('gemini-1.5-flash-8b')
     prompt = f"Rewrite the following content to make it original and distinct:\n\n{original_content}"
     response = model.generate_content(prompt)
     return response.text.strip()
 
 # Function to convert text to speech using gTTS
-def text_to_speech(text, filename="generated_content.mp3"):
-    """Converts the provided text to speech and saves it as an MP3 file."""
+def text_to_speech(text):
+    """Converts the provided text to speech and returns it as an audio stream."""
     tts = gTTS(text, lang='en')
-    tts.save(filename)
-    return filename
+    audio_file = BytesIO()
+    tts.save(audio_file)
+    audio_file.seek(0)  # Reset pointer to the beginning of the audio
+    return audio_file
 
 # Anti-abuse: Check the generation limit
 def check_generation_limit():
@@ -87,65 +89,4 @@ if prompt.strip():
                         "response_mime_type": "text/plain",
                     }
 
-                    model = genai.GenerativeModel(
-                        model_name="gemini-1.5-flash-8b",
-                        generation_config=generation_config,
-                    )
-
-                    # Start the chat session and send the prompt
-                    chat_session = model.start_chat(history=[])
-                    response = chat_session.send_message(prompt)
-                    generated_text = response.text.strip()
-
-                    # Display the generated content with feedback
-                    st.subheader("Step 2: Your Generated Content")
-                    st.write(generated_text)
-
-                    # Option to generate a podcast (Text-to-Speech)
-                    if st.button("Generate Podcast (Text-to-Speech)"):
-                        with st.spinner("Converting to speech..."):
-                            audio_filename = text_to_speech(generated_text)
-                            st.success("Podcast generated successfully!")
-                            st.audio(audio_filename, format="audio/mp3")
-
-                    # Increment generation count
-                    st.session_state.generation_count += 1
-
-                    # Check for similar content online (Step 3)
-                    st.subheader("Step 3: Searching for Similar Content Online")
-                    search_results = search_web(generated_text)
-
-                    if search_results:
-                        st.warning("We found similar content on the web:")
-
-                        # Display results in a compact, user-friendly format
-                        for result in search_results[:3]:  # Show only the top 3 results
-                            with st.expander(result['title']):
-                                st.write(f"**Source:** [{result['link']}]({result['link']})")
-                                st.write(f"**Snippet:** {result['snippet'][:150]}...")  # Shortened snippet
-                                st.write("---")
-
-                        # Option to regenerate content for originality
-                        regenerate_button = st.button("Regenerate Content for Originality")
-                        if regenerate_button:
-                            with st.spinner("Regenerating content..."):
-                                regenerated_text = regenerate_content(generated_text)
-                                st.session_state.generated_text = regenerated_text
-                                st.success("Content successfully regenerated for originality.")
-                                st.subheader("Regenerated Content:")
-                                st.write(regenerated_text)
-
-                    else:
-                        st.success("Your content appears to be original. No similar content found online.")
-
-                except Exception as e:
-                    st.error(f"Error generating content: {e}")
-    else:
-        st.info("You have exceeded your content generation limit. Please wait 15 minutes before generating more content.")
-else:
-    st.info("Enter your idea in the text box above to start.")
-
-# Option to clear the input and reset the app
-if st.button("Clear Input"):
-    st.session_state.generated_text = ""
-    st.experimental_rerun()  # Reset the app state
+                    # Create the model and start chat session
