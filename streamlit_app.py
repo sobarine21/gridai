@@ -102,7 +102,8 @@ if prompt.strip():
                     with st.spinner("Generating podcast... Please wait!"):
                         podcast_path = generate_podcast(generated_text)
                         if podcast_path:
-                            st.audio(podcast_path, format='audio/mp3')
+                            with open(podcast_path, "rb") as f:
+                                st.audio(f.read(), format='audio/mp3')
                             st.success("Podcast generated successfully!")
 
             except Exception as e:
