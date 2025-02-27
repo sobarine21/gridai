@@ -50,7 +50,7 @@ def search_web(query):
 # Function to regenerate content for originality
 def regenerate_content(original_content):
     """Generates rewritten content based on the original content to ensure originality."""
-    model = genai.GenerativeModel('gemini-1.5-flash')
+    model = genai.GenerativeModel('gemini-1.5-flash-8b', generation_config=generation_config)
     prompt = f"Rewrite the following content to make it original and distinct:\n\n{original_content}"
     response = model.generate_content(prompt)
     return response.text.strip()
@@ -78,15 +78,24 @@ if prompt.strip():
         if st.button("Generate Content"):
             with st.spinner("Generating content... Please wait!"):
                 try:
-                    # Generate content using Generative AI
-                    model = genai.GenerativeModel('gemini-1.5-flash')
-                    response = model.generate_content(prompt)
-                    generated_text = response.text.strip()
+                    # Set the generation_config to control output tokens
+                    generation_config = {
+                        "temperature": 1,
+                        "top_p": 0.95,
+                        "top_k": 40,
+                        "max_output_tokens": 500,  # Adjust token limit based on your needs
+                        "response_mime_type": "text/plain",
+                    }
 
-                    # Check if the generated content exceeds the 2500 character limit
-                    if len(generated_text) > 2500:
-                        st.warning("The generated content exceeds the 2500 character limit. Truncating the content.")
-                        generated_text = generated_text[:2500]
+                    model = genai.GenerativeModel(
+                        model_name="gemini-1.5-flash-8b",
+                        generation_config=generation_config,
+                    )
+
+                    # Start the chat session and send the prompt
+                    chat_session = model.start_chat(history=[])
+                    response = chat_session.send_message(prompt)
+                    generated_text = response.text.strip()
 
                     # Display the generated content with feedback
                     st.subheader("Step 2: Your Generated Content")
