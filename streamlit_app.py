@@ -43,10 +43,14 @@ def regenerate_content(original_content):
 # Function to generate podcast using Google gTTS
 def generate_podcast(text):
     """Generates a podcast (audio file) from the given text using gTTS."""
-    tts = gTTS(text, lang='en')
-    podcast_path = "podcast.mp3"
-    tts.save(podcast_path)
-    return podcast_path
+    try:
+        tts = gTTS(text, lang='en')
+        podcast_path = "podcast.mp3"
+        tts.save(podcast_path)
+        return podcast_path
+    except Exception as e:
+        st.error(f"Error generating podcast: {e}")
+        return None
 
 # Content Generation and Search for Similarity (Step 2)
 if prompt.strip():
@@ -97,8 +101,9 @@ if prompt.strip():
                 if st.button("Generate Podcast"):
                     with st.spinner("Generating podcast... Please wait!"):
                         podcast_path = generate_podcast(generated_text)
-                        st.audio(podcast_path, format='audio/mp3')
-                        st.success("Podcast generated successfully!")
+                        if podcast_path:
+                            st.audio(podcast_path, format='audio/mp3')
+                            st.success("Podcast generated successfully!")
 
             except Exception as e:
                 st.error(f"Error generating content: {e}")
